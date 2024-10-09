@@ -1,64 +1,37 @@
-import requests
-import socket
+from flask import Flask, request, jsonify
+app=Flask(__name__)
 
-def register_client(server_url,nickname,port=12345):
-    URL=f"{server_url}/connect"
-    params={'nickname':nickname,'port':port}
+connected_devices={}
 
-    response=requests.get(URL,params=params)
+@app.route('/')
+def index():
+    return "Server"
 
-    if response.status_code == 200:
-        print("Registered")
+@app.route('/connect', methods=['GET'])
+def register():
+    nickname=request.args.get('nickname')
+    if not nickname:
+        return jsonify({'error':'Nickname is required'}),400
+    ip=request.remote_addr
+    port=request.args.get('port',12345)
+
+    connected_devices[nickname]=(ip,port)
+    return jsonify({"message":f"{nickname} {ip} registered"}),200
+
+@app.route('/unregister', methods=['GET'])
+def unregister():
+    nickname=request.args.get('nickname')
+
+    if nickname in connected_devices:
+        del connected_devices[nickname]
+        return jsonify({'message':f'Device {nickname} unregistered'}),200
     else:
-        print("Failed to register")
+        return jsonify({'message':f'Device {nickname} not found'}),404
 
+@app.route('/list',methods=['GET'])
+def list_devices():
+    return jsonify({'devices':connected_devices}),200
 
-def list_device(server_url):
-    URL=f"{server_url}/list"
-    response=requests.get(URL)
-    if response.status_code==200:
-        return response.json()
-    else:
-        return {}
+if __name__=='__main__':
+    app.run(debug=True,host='0.0.0.0',port=5000)
 
-
-def connectTo(devices,target):
-    try:
-        target_ip,target_port=devices[target][0],int(devices[target][1])
-        print(f"{target}--{target_ip}:{target_port}")
-        client_socket=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-        client_socket.connect((target_ip,target_port))
-
-        message=input("You: ")
-        client_socket.send(message.encode())
-
-        response=client_socket.recv(1024).decode()
-        print(f"{target}: {response}")
-        client_socket.close()
-    except Exception as e:
-        print(f"Error: {e}")
-
-def unregister(server,nickname):
-    URL=f"{server}/unregister"
-    params={'nickname':nickname}
-    response=requests.get(URL,params=params)
-
-    if response.status_code == 200:
-        print("Unregistered")
-    else:
-        print('error')
-
-
-server='http://127.0.0.1:5000'
-choice=''
-nickname=input("Enter your username")
-register_client(server,nickname)
-while choice != 'exit':
-    devices=list_device(server)['devices']
-    print(devices)    
-    choice=input("Enter Choice \n1. List of connected devices \n2. Connect to User\n")
-    if choice.lower() == 'list' or choice == '1':
-        print(devices)
-    if choice.lower() == 'connect' or choice == '2':
-        target=input("Enter the username of the device you want to connect to")
-        connectTo(devices,target)
