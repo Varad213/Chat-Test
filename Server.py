@@ -12,7 +12,7 @@ def register():
     nickname=request.args.get('nickname')
     if not nickname:
         return jsonify({'error':'Nickname is required'}),400
-    ip=request.remote_addr
+    ip=request.args.get('ip')
     port=request.args.get('port',12345)
 
     connected_devices[nickname]=(ip,port)
